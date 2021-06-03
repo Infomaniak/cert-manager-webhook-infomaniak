@@ -12,11 +12,14 @@ certManager:
   namespace: cert-manager
   serviceAccountName: cert-manager
 
+replicaCount: 1
+
 image:
-  repository: webhook
+  repository: ghcr.io/infomaniak/cert-manager-webhook-infomaniak
   tag: latest
   pullPolicy: IfNotPresent
-  pullSecret: gitlab-registry
+
+imagePullSecret: []
 
 nameOverride: ""
 fullnameOverride: ""

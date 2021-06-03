@@ -1,9 +1,0 @@
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: {{ .Release.Namespace | quote }}
-  labels:
-    app: {{ include "infomaniak-webhook.name" . }}
-    chart: {{ include "infomaniak-webhook.chart" . }}
-    release: {{ .Release.Name }}
-    heritage: {{ .Release.Service }}
