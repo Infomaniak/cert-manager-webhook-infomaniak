@@ -84,6 +84,8 @@ spec:
               readOnly: true
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
+          securityContext:
+            {{- toYaml .Values.containerSecurityContext | nindent 12 }}
       volumes:
         - name: certs
           secret:
