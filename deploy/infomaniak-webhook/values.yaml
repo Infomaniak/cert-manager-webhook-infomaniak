@@ -53,3 +53,14 @@ nodeSelector: {}
 tolerations: []
 
 affinity: {}
+
+containerSecurityContext:
+  runAsNonRoot: true
+  readOnlyRootFilesystem: true
+  allowPrivilegeEscalation: false
+  seccompProfile:
+    type: RuntimeDefault
+  capabilities:
+    drop:
+    - ALL
+  runAsUser: 1000
