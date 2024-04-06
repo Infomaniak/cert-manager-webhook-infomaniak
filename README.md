@@ -1,11 +1,12 @@
 # Infomaniak ACME webhook
 
 A cert-manager webhook which works with domains handled by [Infomaniak](https://www.infomaniak.com), a 🇨🇭 Swiss hosting provider
+
 ## Quick start
 
 1. Deploy cert-manager (if needed)
     ```
-    $ kubectl apply --validate=false -f https://github.com/jetstack/cert-manager/releases/download/v1.0.1/cert-manager.yaml
+    $ kubectl apply --validate=false -f https://github.com/cert-manager/cert-manager/releases/download/v1.14.4/cert-manager.yaml
     ```
 
 1. Deploy Infomaniak webhook
@@ -109,4 +110,4 @@ Run `make build`
 All DNS providers **must** run the DNS01 provider conformance testing suite,
 else they will have undetermined behaviour when used with cert-manager.
 
-You can run the test suite by exporting your API token in `INFOMANIAK_TOKEN`, then by running `TEST_ZONE_NAME=example.com. make test`
+You can run the test suite by exporting your API token in `INFOMANIAK_TOKEN`, then by running `TEST_ZONE_NAME=example.com. make test`.
