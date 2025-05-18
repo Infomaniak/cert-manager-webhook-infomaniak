@@ -147,6 +147,14 @@ type InfomaniakDNSRecord struct {
 	IsEditable bool   `json:"is_editable,omitempty"`
 }
 
+type InfomaniakDNSRecordForeign struct {
+	ID        string `json:"id,omitempty"`
+	SourceIdn string `json:"source_idn,omitempty"`
+	Type      string `json:"type,omitempty"`
+	Target    string `json:"target,omitempty"`
+	TargetIdn string `json:"target_idn,omitempty"`
+}
+
 // ErrDomainNotFound
 var ErrDomainNotFound = errors.New("domain not found")
 
@@ -203,10 +211,10 @@ func (ik *InfomaniakAPI) getRecordID(domain *InfomaniakDNSDomain, source, target
 		return nil, err
 	}
 
-	var records []InfomaniakDNSRecord
+	var records []InfomaniakDNSRecordForeign
 
 	if err = json.Unmarshal(*resp.Data, &records); err != nil {
-		return nil, fmt.Errorf("expected array of Record, got: %v", string(*resp.Data))
+		return nil, fmt.Errorf("expected array of Record, error: %v, got: %v", err.Error(), string(*resp.Data))
 	}
 
 	if len(records) < 1 {
@@ -214,7 +222,13 @@ func (ik *InfomaniakAPI) getRecordID(domain *InfomaniakDNSDomain, source, target
 	}
 
 	for _, record := range records {
-		if record.Source == source && record.Target == target && record.Type == rtype {
+		var recordSourceIndex = strings.LastIndex(record.SourceIdn, domain.CustomerName)
+		var recordSource = record.SourceIdn
+		if recordSourceIndex > 0 {
+			recordSource = recordSource[0 : recordSourceIndex-1]
+		}
+
+		if recordSource == source && record.Target == target && record.Type == rtype {
 			return &record.ID, nil
 		}
 	}
