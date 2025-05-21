@@ -20,3 +20,6 @@ _test
 apiserver.local.config
 testdata/infomaniak/*.yaml
 testdata/infomaniak/*.json
+deploy/rendered-manifest.yaml
+.tiltbuild
+
