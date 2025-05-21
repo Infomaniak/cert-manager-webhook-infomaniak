@@ -10,6 +10,8 @@ import (
 	"net/url"
 	"strings"
 
+	"golang.org/x/net/idna"
+
 	"k8s.io/klog/v2"
 )
 
@@ -131,6 +133,14 @@ type InfomaniakDNSDomain struct {
 	Special             bool             `json:"special,omitempty"`
 }
 
+func (d *InfomaniakDNSDomain) ASCIIName() (string, error) {
+	domainASCII, err := idna.ToASCII(d.CustomerName)
+	if err != nil {
+		return "", fmt.Errorf("could not convert domain `%s` to ASCII: %w", d.CustomerName, err)
+	}
+	return domainASCII, nil
+}
+
 // InfomaniakDNSRecord defines the format of a DNSRecord object
 type InfomaniakDNSRecord struct {
 	ID         string `json:"id,omitempty"`
@@ -182,7 +192,11 @@ func (ik *InfomaniakAPI) GetDomainByName(name string) (*InfomaniakDNSDomain, err
 		}
 
 		for _, domain := range domains {
-			if domain.CustomerName == name {
+			domainASCII, err := domain.ASCIIName()
+			if err != nil {
+				return nil, err
+			}
+			if domainASCII == name {
 				klog.V(4).Infof("Domain `%s` found, id=`%d`", name, domain.ID)
 				return &domain, nil
 			}
