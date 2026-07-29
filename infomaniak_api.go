@@ -180,7 +180,7 @@ func (ik *InfomaniakAPI) GetDomainByName(name string) (*InfomaniakDNSDomain, err
 		params.Add("service_name", "domain")
 		params.Add("customer_name", name)
 
-		resp, err := ik.get("/1/product", params)
+		resp, err := ik.get("/1/products", params)
 		if err != nil {
 			return nil, err
 		}
