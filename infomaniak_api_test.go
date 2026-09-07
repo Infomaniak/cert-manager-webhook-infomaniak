@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -85,6 +86,27 @@ func TestRequestErrorEnvelope(t *testing.T) {
 	}
 }
 
+func TestRequestErrorEnvelopeWithArrayContext(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/2/zones/example.com/exists", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusForbidden)
+		fmt.Fprint(w, `{"result":"error","error":{"code":"not_authorized","description":"Permission not granted","context":{"required_scopes":["dns:read"]}}}`)
+	})
+
+	ik := newTestClient(t, mux)
+
+	_, err := ik.zoneExists("example.com")
+	if err == nil {
+		t.Fatal("expected an error")
+	}
+	if strings.Contains(err.Error(), "response parsing error") {
+		t.Errorf("error envelope must be decoded, got a parsing error: %v", err)
+	}
+	if !strings.Contains(err.Error(), "not_authorized") {
+		t.Errorf("expected the API error code in the message, got: %v", err)
+	}
+}
+
 func TestZoneExistsMissingData(t *testing.T) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/2/zones/example.com/exists", func(w http.ResponseWriter, r *http.Request) {
@@ -95,6 +117,45 @@ func TestZoneExistsMissingData(t *testing.T) {
 
 	if _, err := ik.zoneExists("example.com"); err == nil {
 		t.Error("expected an error when the response has no data")
+	}
+}
+
+func TestZoneExistsObjectNotFound(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/2/zones/example.com/exists", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		fmt.Fprint(w, `{"result":"error","error":{"code":"object_not_found","description":"Zone not found"}}`)
+	})
+
+	ik := newTestClient(t, mux)
+
+	exists, err := ik.zoneExists("example.com")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if exists {
+		t.Error("expected the zone to not exist on object_not_found")
+	}
+}
+
+func TestGetZoneByNameWalkUpObjectNotFound(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/2/zones/api.example.com/exists", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		fmt.Fprint(w, `{"result":"error","error":{"code":"object_not_found","description":"Zone not found"}}`)
+	})
+	mux.HandleFunc("/2/zones/example.com/exists", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, `{"result":"success","data":true}`)
+	})
+
+	ik := newTestClient(t, mux)
+
+	zone, err := ik.GetZoneByName("api.example.com")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if zone != "example.com" {
+		t.Errorf("expected zone `example.com`, got `%s`", zone)
 	}
 }
 

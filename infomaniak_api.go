@@ -27,10 +27,28 @@ type InfomaniakAPI struct {
 
 // ErrorResponse defines the error response format, as described here https://api.infomaniak.com/doc#home
 type ErrorResponse struct {
-	Code        string            `json:"code"`
-	Description string            `json:"description,omitempty"`
-	Context     map[string]string `json:"context,omitempty"`
-	Errors      []ErrorResponse   `json:"errors,omitempty"`
+	Code        string          `json:"code"`
+	Description string          `json:"description,omitempty"`
+	Context     map[string]any  `json:"context,omitempty"`
+	Errors      []ErrorResponse `json:"errors,omitempty"`
+}
+
+// APIError represents an error returned by the Infomaniak API
+type APIError struct {
+	Code        string
+	Description string
+	Context     map[string]any
+}
+
+func (e *APIError) Error() string {
+	msg := e.Code
+	if e.Description != "" {
+		msg += ": " + e.Description
+	}
+	if len(e.Context) > 0 {
+		msg += fmt.Sprintf(" (context: %v)", e.Context)
+	}
+	return msg
 }
 
 // InfomaniakAPIResponse defines the generic response format, as described here https://api.infomaniak.com/doc#home
@@ -89,6 +107,11 @@ func (ik *InfomaniakAPI) GetZoneByName(name string) (string, error) {
 func (ik *InfomaniakAPI) zoneExists(zone string) (bool, error) {
 	resp, err := ik.get(fmt.Sprintf("/2/zones/%s/exists", url.PathEscape(zone)), nil)
 	if err != nil {
+		// a missing zone is reported as a 404 object_not_found error envelope
+		var apiErr *APIError
+		if errors.As(err, &apiErr) && apiErr.Code == "object_not_found" {
+			return false, nil
+		}
 		return false, err
 	}
 
@@ -136,7 +159,11 @@ func (ik *InfomaniakAPI) request(method, path string, body io.Reader) (*Infomani
 	klog.V(8).Infof("Response status: `%s` json response: `%v`", rawResp.Status, string(rawJSON))
 
 	if resp.Result != "success" {
-		return nil, fmt.Errorf("%s %s failed: %v", method, path, resp.ErrResponse)
+		return nil, fmt.Errorf("%s %s failed: %w", method, path, &APIError{
+			Code:        resp.ErrResponse.Code,
+			Description: resp.ErrResponse.Description,
+			Context:     resp.ErrResponse.Context,
+		})
 	}
 
 	return &resp, nil
