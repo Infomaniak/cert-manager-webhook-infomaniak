@@ -245,3 +245,30 @@ func TestRemoveDNSRecordSkipsWhenAbsent(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
+
+func TestUpdateDNSRecordSendsTargetAndTTL(t *testing.T) {
+	var updatedBody []byte
+	mux := http.NewServeMux()
+	mux.HandleFunc("/2/zones/example.com/records/12", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPut {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+		updatedBody, _ = io.ReadAll(r.Body)
+		fmt.Fprint(w, `{"result":"success","data":{"id":12,"source":"_acme-challenge","type":"TXT","target":"new-value","ttl":600}}`)
+	})
+
+	ik := newTestClient(t, mux)
+
+	if err := ik.UpdateDNSRecord("example.com", 12, "new-value", 600); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	var sent InfomaniakDNSRecord
+	if err := json.Unmarshal(updatedBody, &sent); err != nil {
+		t.Fatalf("invalid JSON body: %v (%s)", err, updatedBody)
+	}
+	if sent.Target != "new-value" || sent.TTL != 600 {
+		t.Errorf("unexpected record sent: %+v", sent)
+	}
+}

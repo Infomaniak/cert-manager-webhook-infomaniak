@@ -260,3 +260,17 @@ func (ik *InfomaniakAPI) RemoveDNSRecord(zone, source, target, rtype string) err
 	_, err = ik.delete(fmt.Sprintf("/2/zones/%s/records/%d", url.PathEscape(zone), *recordID))
 	return err
 }
+
+// UpdateDNSRecord updates the target and the TTL of an existing record
+func (ik *InfomaniakAPI) UpdateDNSRecord(zone string, recordID uint64, target string, ttl uint64) error {
+	klog.V(4).Infof("Update record zone=%s record=%d target=%s ttl=%d", zone, recordID, target, ttl)
+
+	record := InfomaniakDNSRecord{Target: target, TTL: ttl}
+	rawJSON, err := json.Marshal(record)
+	if err != nil {
+		return err
+	}
+
+	_, err = ik.put(fmt.Sprintf("/2/zones/%s/records/%d", url.PathEscape(zone), recordID), bytes.NewBuffer(rawJSON))
+	return err
+}
