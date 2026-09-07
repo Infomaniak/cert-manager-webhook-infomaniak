@@ -136,6 +136,19 @@ func TestGetRecordIDNotFound(t *testing.T) {
 	}
 }
 
+func TestGetRecordIDMissingData(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/2/zones/example.com/records", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, `{"result":"success"}`)
+	})
+
+	ik := newTestClient(t, mux)
+
+	if _, err := ik.getRecordID("example.com", "_acme-challenge", "challenge-value", "TXT"); err == nil {
+		t.Error("expected an error when the response has no data")
+	}
+}
+
 func TestEnsureDNSRecordCreatesWhenMissing(t *testing.T) {
 	var createdBody []byte
 	mux := http.NewServeMux()

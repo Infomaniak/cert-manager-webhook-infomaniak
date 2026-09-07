@@ -188,6 +188,10 @@ func (ik *InfomaniakAPI) getRecordID(zone, source, target, rtype string) (*uint6
 		return nil, err
 	}
 
+	if resp.Data == nil {
+		return nil, fmt.Errorf("no data in response")
+	}
+
 	var records []InfomaniakDNSRecord
 
 	if err = json.Unmarshal(*resp.Data, &records); err != nil {
