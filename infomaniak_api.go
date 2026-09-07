@@ -23,6 +23,7 @@ const (
 // It implements only the methods required for the ACME Challenge
 type InfomaniakAPI struct {
 	apiToken string
+	baseURL  string
 }
 
 // ErrorResponse defines the error response format, as described here https://api.infomaniak.com/doc#home
@@ -44,7 +45,60 @@ type InfomaniakAPIResponse struct {
 func NewInfomaniakAPI(apiToken string) *InfomaniakAPI {
 	return &InfomaniakAPI{
 		apiToken: apiToken,
+		baseURL:  infomaniakBaseURL,
 	}
+}
+
+// ErrZoneNotFound
+var ErrZoneNotFound = errors.New("zone not found")
+
+// GetZoneByName returns the name of the zone matching the given name,
+// walking up the domain labels until a zone is found
+func (ik *InfomaniakAPI) GetZoneByName(name string) (string, error) {
+	klog.V(4).Infof("Getting zone matching `%s`", name)
+
+	// remove trailing . if present
+	if strings.HasSuffix(name, ".") {
+		name = name[:len(name)-1]
+	}
+
+	// Try to find the most specific zone
+	// starts with the FQDN, then remove each left label until we have a match
+	for {
+		i := strings.Index(name, ".")
+		if i == -1 {
+			break
+		}
+
+		exists, err := ik.zoneExists(name)
+		if err != nil {
+			return "", err
+		}
+		if exists {
+			klog.V(4).Infof("Zone `%s` found", name)
+			return name, nil
+		}
+
+		klog.V(4).Infof("Zone `%s` not found, trying with `%s`", name, name[i+1:])
+		name = name[i+1:]
+	}
+
+	return "", ErrZoneNotFound
+}
+
+// zoneExists checks if a zone exists in the account
+func (ik *InfomaniakAPI) zoneExists(zone string) (bool, error) {
+	resp, err := ik.get(fmt.Sprintf("/2/zones/%s/exists", url.PathEscape(zone)), nil)
+	if err != nil {
+		return false, err
+	}
+
+	var exists bool
+	if err := json.Unmarshal(*resp.Data, &exists); err != nil {
+		return false, fmt.Errorf("expected boolean, got: %v", string(*resp.Data))
+	}
+
+	return exists, nil
 }
 
 // request builds the raw request
@@ -52,18 +106,18 @@ func (ik *InfomaniakAPI) request(method, path string, body io.Reader) (*Infomani
 	if path[0] != '/' {
 		path = "/" + path
 	}
-	url := infomaniakBaseURL + path
+	requestURL := ik.baseURL + path
 
 	client := &http.Client{}
 
-	req, err := http.NewRequest(method, url, body)
+	req, err := http.NewRequest(method, requestURL, body)
 	if err != nil {
 		return nil, err
 	}
 	req.Header.Set("Authorization", "Bearer "+ik.apiToken)
 	req.Header.Set("Content-Type", "application/json")
 
-	klog.V(6).Infof("%s %s", method, url)
+	klog.V(6).Infof("%s %s", method, requestURL)
 	rawResp, err := client.Do(req)
 	if err != nil {
 		return nil, err
