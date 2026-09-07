@@ -8,9 +8,8 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
-
-	"golang.org/x/net/idna"
 
 	"k8s.io/klog/v2"
 )
@@ -169,108 +168,22 @@ func (ik *InfomaniakAPI) delete(path string) (*InfomaniakAPIResponse, error) {
 	return ik.request("DELETE", path, nil)
 }
 
-// InfomaniakDNSDomain defines the format of a Domain object
-type InfomaniakDNSDomain struct {
-	ID                  uint64           `json:"id,omitempty"`
-	AccountID           uint64           `json:"account_id,omitempty"`
-	ServiceID           uint64           `json:"service_id,omitempty"`
-	ServiceName         string           `json:"service_name,omitempty"`
-	CustomerName        string           `json:"customer_name,omitempty"`
-	InternalName        string           `json:"internal_name,omitempty,omitempty"`
-	CreatedAt           uint64           `json:"created_at,omitempty"`
-	ExpiredAt           uint64           `json:"expired_at,omitempty"`
-	Version             uint64           `json:"version,omitempty"`
-	Maintenance         bool             `json:"maintenance,omitempty"`
-	Locked              bool             `json:"locked,omitempty"`
-	OperationInProgress bool             `json:"operation_in_progress,omitempty"`
-	Tags                *json.RawMessage `json:"tags,omitempty"`
-	UniqueID            uint64           `json:"unique_id,omitempty"`
-	Description         string           `json:"description,omitempty"`
-	Isfree              bool             `json:"is_free,omitempty"`
-	Rights              *json.RawMessage `json:"rights,omitempty"`
-	Special             bool             `json:"special,omitempty"`
-}
-
-func (d *InfomaniakDNSDomain) ASCIIName() (string, error) {
-	domainASCII, err := idna.ToASCII(d.CustomerName)
-	if err != nil {
-		return "", fmt.Errorf("could not convert domain `%s` to ASCII: %w", d.CustomerName, err)
-	}
-	return domainASCII, nil
-}
-
 // InfomaniakDNSRecord defines the format of a DNSRecord object
 type InfomaniakDNSRecord struct {
-	ID         string `json:"id,omitempty"`
-	Source     string `json:"source,omitempty"`
-	SourceIdn  string `json:"source_idn,omitempty"`
-	Type       string `json:"type,omitempty"`
-	TTL        uint64 `json:"ttl,omitempty"`
-	TTLIdn     string `json:"ttl_idn,omitempty"`
-	Target     string `json:"target,omitempty"`
-	TargetIdn  string `json:"target_idn,omitempty"`
-	UpdatedAt  uint64 `json:"updated_at,omitempty"`
-	DyndnsID   string `json:"dyndns_id,omitempty,omitempty"`
-	Priority   uint64 `json:"priority,omitempty"`
-	IsEditable bool   `json:"is_editable,omitempty"`
+	ID        uint64 `json:"id,omitempty"`
+	Source    string `json:"source,omitempty"`
+	SourceIdn string `json:"source_idn,omitempty"`
+	Type      string `json:"type,omitempty"`
+	TTL       uint64 `json:"ttl,omitempty"`
+	Target    string `json:"target,omitempty"`
+	UpdatedAt uint64 `json:"updated_at,omitempty"`
 }
 
-// ErrDomainNotFound
-var ErrDomainNotFound = errors.New("domain not found")
+// getRecordID gather a record id from its specs (zone, source, target, rtype)
+func (ik *InfomaniakAPI) getRecordID(zone, source, target, rtype string) (*uint64, error) {
+	klog.V(4).Infof("Getting all records for zone=%s, then match source=%s target=%s rtype=%s", zone, source, target, rtype)
 
-// GetDomainByName gather a Domain object from its name
-func (ik *InfomaniakAPI) GetDomainByName(name string) (*InfomaniakDNSDomain, error) {
-	klog.V(4).Infof("Getting domain matching `%s`", name)
-
-	// remove trailing . if present
-	if strings.HasSuffix(name, ".") {
-		name = name[:len(name)-1]
-	}
-
-	// Try to find the most specific domain
-	// starts with the FQDN, then remove each left label until we have a match
-	for {
-		i := strings.Index(name, ".")
-		if i == -1 {
-			break
-		}
-		params := url.Values{}
-		params.Add("service_name", "domain")
-		params.Add("customer_name", name)
-
-		resp, err := ik.get("/1/product", params)
-		if err != nil {
-			return nil, err
-		}
-
-		var domains []InfomaniakDNSDomain
-
-		if err = json.Unmarshal(*resp.Data, &domains); err != nil {
-			return nil, fmt.Errorf("expected array of Domain, got: %v", string(*resp.Data))
-		}
-
-		for _, domain := range domains {
-			domainASCII, err := domain.ASCIIName()
-			if err != nil {
-				return nil, err
-			}
-			if domainASCII == name {
-				klog.V(4).Infof("Domain `%s` found, id=`%d`", name, domain.ID)
-				return &domain, nil
-			}
-		}
-		klog.V(4).Infof("Domain `%s` not found, trying with `%s`", name, name[i+1:])
-		name = name[i+1:]
-	}
-
-	return nil, ErrDomainNotFound
-}
-
-// getRecordID gather a record id from its specs (domain, source, target, rtype)
-func (ik *InfomaniakAPI) getRecordID(domain *InfomaniakDNSDomain, source, target, rtype string) (*string, error) {
-	klog.V(4).Infof("Getting all record for domain=%d, then match source=%s target=%s rtype=%s", domain.ID, source, target, rtype)
-
-	resp, err := ik.get(fmt.Sprintf("/1/domain/%d/dns/record", domain.ID), nil)
+	resp, err := ik.get(fmt.Sprintf("/2/zones/%s/records", url.PathEscape(zone)), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -281,12 +194,8 @@ func (ik *InfomaniakAPI) getRecordID(domain *InfomaniakDNSDomain, source, target
 		return nil, fmt.Errorf("expected array of Record, got: %v", string(*resp.Data))
 	}
 
-	if len(records) < 1 {
-		return nil, fmt.Errorf("no records in zone")
-	}
-
 	for _, record := range records {
-		if record.Source == source && record.Target == target && record.Type == rtype {
+		if record.Source == source && record.Type == rtype && unquoteTarget(record.Target) == target {
 			return &record.ID, nil
 		}
 	}
@@ -294,17 +203,27 @@ func (ik *InfomaniakAPI) getRecordID(domain *InfomaniakDNSDomain, source, target
 	return nil, nil
 }
 
-// EnsureDNSRecord ensures a record is present with the correct key
-func (ik *InfomaniakAPI) EnsureDNSRecord(domain *InfomaniakDNSDomain, source, target, rtype string, ttl uint64) error {
-	klog.V(4).Infof("Ensure record domain=%d source=%s target=%s rtype=%s TTL=%d", domain.ID, source, target, rtype, ttl)
+// unquoteTarget unquotes a dns record target when it is written in the quoted
+// zone file format (TXT records are returned quoted by the API)
+func unquoteTarget(target string) string {
+	unquoted, err := strconv.Unquote(target)
+	if err != nil {
+		return target
+	}
+	return unquoted
+}
 
-	recordID, err := ik.getRecordID(domain, source, target, rtype)
+// EnsureDNSRecord ensures a record is present with the correct key
+func (ik *InfomaniakAPI) EnsureDNSRecord(zone, source, target, rtype string, ttl uint64) error {
+	klog.V(4).Infof("Ensure record zone=%s source=%s target=%s rtype=%s TTL=%d", zone, source, target, rtype, ttl)
+
+	recordID, err := ik.getRecordID(zone, source, target, rtype)
 	if err != nil {
 		return err
 	}
 
 	if recordID != nil {
-		klog.V(4).Infof("Record already exists (domain=%d record=%s source=%s rtype=%s target=%s), skipping addition", domain.ID, *recordID, source, rtype, target)
+		klog.V(4).Infof("Record already exists (zone=%s record=%d source=%s rtype=%s target=%s), skipping addition", zone, *recordID, source, rtype, target)
 		return nil
 	}
 
@@ -314,26 +233,26 @@ func (ik *InfomaniakAPI) EnsureDNSRecord(domain *InfomaniakDNSDomain, source, ta
 		return err
 	}
 
-	klog.V(4).Infof("Adding record domain=%d (source=%s rtype=%s target=%s ttl=%d)", domain.ID, source, rtype, target, ttl)
-	_, err = ik.post(fmt.Sprintf("/1/domain/%d/dns/record", domain.ID), bytes.NewBuffer(rawJSON))
+	klog.V(4).Infof("Adding record zone=%s (source=%s rtype=%s target=%s ttl=%d)", zone, source, rtype, target, ttl)
+	_, err = ik.post(fmt.Sprintf("/2/zones/%s/records", url.PathEscape(zone)), bytes.NewBuffer(rawJSON))
 	return err
 }
 
 // RemoveDNSRecord ensures a record is absent
-func (ik *InfomaniakAPI) RemoveDNSRecord(domain *InfomaniakDNSDomain, source, target, rtype string) error {
-	klog.V(4).Infof("Remove record domain=%d source=%s rtype=%s target=%s", domain.ID, source, rtype, target)
-	recordID, err := ik.getRecordID(domain, source, target, rtype)
+func (ik *InfomaniakAPI) RemoveDNSRecord(zone, source, target, rtype string) error {
+	klog.V(4).Infof("Remove record zone=%s source=%s rtype=%s target=%s", zone, source, rtype, target)
+	recordID, err := ik.getRecordID(zone, source, target, rtype)
 	if err != nil {
 		return err
 	}
 
 	// the record is already absent doing nothing
-	if recordID == nil || len(*recordID) < 1 {
-		klog.V(4).Infof("No record found (domain=%d source=%s rtype=%s target=%s), skipping deletion", domain.ID, source, rtype, target)
+	if recordID == nil {
+		klog.V(4).Infof("No record found (zone=%s source=%s rtype=%s target=%s), skipping deletion", zone, source, rtype, target)
 		return nil
 	}
 
-	klog.V(4).Infof("Deleting record domain=%d record=%s (source=%s rtype=%s target=%s)", domain.ID, *recordID, source, rtype, target)
-	_, err = ik.delete(fmt.Sprintf("/1/domain/%d/dns/record/%s", domain.ID, *recordID))
+	klog.V(4).Infof("Deleting record zone=%s record=%d (source=%s rtype=%s target=%s)", zone, *recordID, source, rtype, target)
+	_, err = ik.delete(fmt.Sprintf("/2/zones/%s/records/%d", url.PathEscape(zone), *recordID))
 	return err
 }
