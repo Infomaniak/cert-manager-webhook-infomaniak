@@ -125,6 +125,7 @@ func (ik *InfomaniakAPI) request(method, path string, body io.Reader) (*Infomani
 	if err != nil {
 		return nil, err
 	}
+	defer rawResp.Body.Close()
 
 	var resp InfomaniakAPIResponse
 	if err := json.NewDecoder(rawResp.Body).Decode(&resp); err != nil {
