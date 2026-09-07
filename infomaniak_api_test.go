@@ -82,3 +82,16 @@ func TestRequestErrorEnvelope(t *testing.T) {
 		t.Error("expected an error when the API returns an error envelope")
 	}
 }
+
+func TestZoneExistsMissingData(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/2/zones/example.com/exists", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, `{"result":"success"}`)
+	})
+
+	ik := newTestClient(t, mux)
+
+	if _, err := ik.zoneExists("example.com"); err == nil {
+		t.Error("expected an error when the response has no data")
+	}
+}

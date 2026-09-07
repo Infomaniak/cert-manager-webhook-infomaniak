@@ -93,6 +93,10 @@ func (ik *InfomaniakAPI) zoneExists(zone string) (bool, error) {
 		return false, err
 	}
 
+	if resp.Data == nil {
+		return false, fmt.Errorf("no data in response")
+	}
+
 	var exists bool
 	if err := json.Unmarshal(*resp.Data, &exists); err != nil {
 		return false, fmt.Errorf("expected boolean, got: %v", string(*resp.Data))
