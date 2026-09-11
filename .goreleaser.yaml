@@ -1,0 +1,79 @@
+version: 2
+
+before:
+  hooks:
+    - sh -c 'sed -i "s/^version:.*/version: \"{{ .Version }}\"/" deploy/infomaniak-webhook/Chart.yaml'
+    - sh -c 'sed -i "s/^appVersion:.*/appVersion: \"{{ .Version }}\"/" deploy/infomaniak-webhook/Chart.yaml'
+    - sh -c 'mkdir -p dist && helm package deploy/infomaniak-webhook --destination dist'
+    - make rendered-manifest.yaml
+
+builds:
+  - env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+    goarch:
+      - amd64
+      - arm64
+    binary: cert-manager-webhook-infomaniak
+    ldflags:
+      - -s -w -extldflags "-static"
+
+archives:
+  - formats: [binary]
+
+checksum:
+  name_template: 'checksums.txt'
+
+signs:
+  - artifacts: checksum
+    cmd: gpg
+    args:
+      - "--batch"
+      - "--output"
+      - "${signature}"
+      - "--detach-sign"
+      - "${artifact}"
+    signature: "${artifact}.sig"
+    fingerprint: "{{.Env.GPG_FINGERPRINT}}"
+
+dockers:
+  - image_templates:
+      - ghcr.io/infomaniak/cert-manager-webhook-infomaniak:{{ .Version }}-amd64
+    goarch: amd64
+    dockerfile: Dockerfile.goreleaser
+    use: buildx
+    build_flag_templates:
+      - "--platform=linux/amd64"
+      - "--label=org.opencontainers.image.title={{ .ProjectName }}"
+      - "--label=org.opencontainers.image.description=cert-manager webhook for Infomaniak DNS"
+      - "--label=org.opencontainers.image.source=https://github.com/Infomaniak/cert-manager-webhook-infomaniak"
+      - "--label=org.opencontainers.image.version={{ .Version }}"
+      - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
+  - image_templates:
+      - ghcr.io/infomaniak/cert-manager-webhook-infomaniak:{{ .Version }}-arm64
+    goarch: arm64
+    dockerfile: Dockerfile.goreleaser
+    use: buildx
+    build_flag_templates:
+      - "--platform=linux/arm64"
+      - "--label=org.opencontainers.image.title={{ .ProjectName }}"
+      - "--label=org.opencontainers.image.description=cert-manager webhook for Infomaniak DNS"
+      - "--label=org.opencontainers.image.source=https://github.com/Infomaniak/cert-manager-webhook-infomaniak"
+      - "--label=org.opencontainers.image.version={{ .Version }}"
+      - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
+
+docker_manifests:
+  - name_template: ghcr.io/infomaniak/cert-manager-webhook-infomaniak:{{ .Version }}
+    image_templates:
+      - ghcr.io/infomaniak/cert-manager-webhook-infomaniak:{{ .Version }}-amd64
+      - ghcr.io/infomaniak/cert-manager-webhook-infomaniak:{{ .Version }}-arm64
+  - name_template: ghcr.io/infomaniak/cert-manager-webhook-infomaniak:latest
+    image_templates:
+      - ghcr.io/infomaniak/cert-manager-webhook-infomaniak:{{ .Version }}-amd64
+      - ghcr.io/infomaniak/cert-manager-webhook-infomaniak:{{ .Version }}-arm64
+
+release:
+  extra_files:
+    - glob: _out/rendered-manifest.yaml
+      name_template: rendered-manifest.yaml

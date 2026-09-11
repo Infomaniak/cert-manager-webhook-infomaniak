@@ -37,7 +37,8 @@ replicaCount: 1
 
 image:
   repository: ghcr.io/infomaniak/cert-manager-webhook-infomaniak
-  tag: latest
+  # defaults to the chart appVersion
+  tag: ""
   pullPolicy: IfNotPresent
 
 imagePullSecret: []

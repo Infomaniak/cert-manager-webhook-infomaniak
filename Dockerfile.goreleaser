@@ -1,0 +1,5 @@
+FROM gcr.io/distroless/static-debian13:nonroot
+
+COPY cert-manager-webhook-infomaniak /usr/local/bin/webhook
+
+ENTRYPOINT ["webhook"]

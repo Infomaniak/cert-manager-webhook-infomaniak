@@ -1,0 +1,28 @@
+name: 'PR and Commit Message Check'
+on:
+  pull_request_target:
+    types:
+      - opened
+      - edited
+      - reopened
+      - synchronize
+
+permissions:
+  contents: read
+  checks: write
+  pull-requests: read
+
+jobs:
+  check-commit-message:
+    name: Check Commit Message
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check Commit Message
+        uses: gsactions/commit-message-checker@v2
+        with:
+          pattern: '^Merge .+|^(build|chore|ci|docs|feat|fix|perf|refactor|revert|style|test){1}(\([\w\-\.]+\))?(!)?: ([\w ])+([\s\S]*)'
+          error: 'Commit messages and PR title should match conventional commit convention and start with an uppercase.'
+          excludeDescription: 'true'
+          excludeTitle: 'false'
+          checkAllCommitMessages: 'true'
+          accessToken: ${{ secrets.GITHUB_TOKEN }}
