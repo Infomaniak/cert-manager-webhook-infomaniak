@@ -61,4 +61,4 @@ jobs:
         run: |
           HELM_REPO="$(echo "$HELM_REPO" | tr '[:upper:]' '[:lower:]')"
           echo "$HELM_PASSWORD" | helm registry login "$HELM_REGISTRY" -u "$HELM_USER" --password-stdin
-          helm push dist/infomaniak-webhook-*.tgz "oci://$HELM_REGISTRY/$HELM_REPO"
+          helm push _out/infomaniak-webhook-*.tgz "oci://$HELM_REGISTRY/$HELM_REPO"
