@@ -17,6 +17,7 @@ cert-manager-webhook-infomaniak
 # Make artifacts
 _out
 _test
+reports
 apiserver.local.config
 testdata/infomaniak/*.yaml
 testdata/infomaniak/*.json

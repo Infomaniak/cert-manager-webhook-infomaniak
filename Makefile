@@ -23,7 +23,18 @@ unit-test:
 	TEST_ASSET_ETCD=/dev/null \
 	TEST_ASSET_KUBE_APISERVER=/dev/null \
 	TEST_ASSET_KUBECTL=/dev/null \
-	$(GO) test -v -run 'TestGetZoneByName|TestRequestErrorEnvelope|TestZoneExists|TestGetRecordID|TestEnsureDNSRecord|TestRemoveDNSRecord|TestUpdateDNSRecord' .
+	$(GO) test -short -v .
+
+.PHONY: unit-test-coverage
+unit-test-coverage: | reports/unit
+	TEST_ASSET_ETCD=/dev/null \
+	TEST_ASSET_KUBE_APISERVER=/dev/null \
+	TEST_ASSET_KUBECTL=/dev/null \
+	$(GO) test -short -race -covermode=atomic \
+		-coverprofile=reports/unit/cover.out .
+	$(GO) tool cover -html=reports/unit/cover.out -o reports/unit/coverage.html
+	$(GO) run github.com/boumenot/gocover-cobertura@latest \
+		< reports/unit/cover.out > reports/unit/cobertura.xml
 
 _test/kubebuilder-$(KUBEBUILDER_VERSION)-$(OS)-$(ARCH).tar.gz: | _test
 	curl -fsSL https://github.com/kubernetes-sigs/kubebuilder/releases/download/v$(KUBEBUILDER_VERSION)/kubebuilder_$(KUBEBUILDER_VERSION)_$(OS)_$(ARCH).tar.gz -o $@
@@ -33,7 +44,7 @@ _test/kubebuilder-$(KUBEBUILDER_VERSION)-$(OS)-$(ARCH)/etcd _test/kubebuilder-$(
 
 .PHONY: clean
 clean:
-	rm -rf _test $(OUT) apiserver.local.config testdata/infomaniak/*.json testdata/infomaniak/*.yaml
+	rm -rf _test $(OUT) reports apiserver.local.config testdata/infomaniak/*.json testdata/infomaniak/*.yaml
 
 .PHONY: build
 build:
@@ -51,9 +62,8 @@ $(OUT)/rendered-manifest.yaml: $(HELM_FILES) | $(OUT)
 		infomaniak-webhook \
 		--namespace $(NAMESPACE) \
 		--set image.repository=$(IMAGE_NAME) \
-		--set image.tag=$(IMAGE_TAG) \
 		--set createReleaseNamespace=true \
 		deploy/infomaniak-webhook > $@
 
-_test $(OUT) _test/kubebuilder-$(KUBEBUILDER_VERSION)-$(OS)-$(ARCH):
+_test $(OUT) reports reports/unit _test/kubebuilder-$(KUBEBUILDER_VERSION)-$(OS)-$(ARCH):
 	mkdir -p $@

@@ -1,0 +1,67 @@
+name: Go Tests
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: []
+
+permissions:
+  contents: read
+  checks: write
+  pull-requests: write
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version-file: 'go.mod'
+        cache: true
+
+    - name: Unit tests with coverage
+      run: make unit-test-coverage
+
+    - name: Live DNS-01 conformance suite (requires INFOMANIAK_TOKEN)
+      env:
+        INFOMANIAK_TOKEN: ${{ secrets.INFOMANIAK_TOKEN }}
+        TEST_ZONE_NAME: ${{ secrets.TEST_ZONE_NAME }}
+      run: |
+        if [ -n "$INFOMANIAK_TOKEN" ] && [ -n "$TEST_ZONE_NAME" ]; then
+          make test
+        else
+          echo "INFOMANIAK_TOKEN/TEST_ZONE_NAME not set: skipping live DNS-01 conformance suite"
+        fi
+
+    - name: Upload test reports
+      id: artifact-upload-step
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: test-reports
+        path: |
+          reports/
+          !reports/*.tmp
+
+    - name: Cobertura pull request comment unit test
+      if: github.event_name == 'pull_request'
+      uses: 5monkeys/cobertura-action@v14
+      with:
+        report_name: Unit test coverage
+        path: reports/unit/cobertura.xml
+        only_changed_files: true
+        minimum_coverage: 0
+
+    - name: Comment PR
+      if: github.event_name == 'pull_request'
+      uses: thollander/actions-comment-pull-request@v3.0.1
+      with:
+        message: |
+          ## 📊 Test Reports Available
+
+          📦 [Download archive](${{ steps.artifact-upload-step.outputs.artifact-url }}) test reports to see details (unit coverage HTML included)
+        comment-tag: test-reports
