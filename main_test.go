@@ -68,12 +68,16 @@ func runTestSuite(t *testing.T, zone string) {
 	// ChallengeRequest passed as part of the test cases.
 
 	if len(zone) == 0 || zone == "api." {
-		t.Fatal("Can't run tests on empty zone, please define TEST_ZONE_NAME")
+		t.Skip("TEST_ZONE_NAME not set: skipping live DNS-01 conformance suite")
+	}
+
+	if testing.Short() {
+		t.Skip("short mode: skipping live DNS-01 conformance suite")
 	}
 
 	// Create the secret file from INFOMANIAK_TOKEN env. variable
 	if err := createSecretFile(); err != nil {
-		t.Fatal(err)
+		t.Skipf("skipping live DNS-01 conformance suite: %v", err)
 	}
 
 	// Create the config file from TEST_METHOD env. variable
