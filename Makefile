@@ -5,6 +5,7 @@ ARCH ?= $(shell $(GO) env GOARCH)
 IMAGE_NAME ?= "ghcr.io/infomaniak/cert-manager-webhook-infomaniak"
 IMAGE_TAG ?= "latest"
 NAMESPACE ?= "cert-manager-infomaniak"
+CHART ?= deploy/infomaniak-webhook
 
 OUT := $(shell pwd)/_out
 
@@ -63,7 +64,7 @@ $(OUT)/rendered-manifest.yaml: $(HELM_FILES) | $(OUT)
 		--namespace $(NAMESPACE) \
 		--set image.repository=$(IMAGE_NAME) \
 		--set createReleaseNamespace=true \
-		deploy/infomaniak-webhook > $@
+		$(CHART) > $@
 
 _test $(OUT) reports reports/unit _test/kubebuilder-$(KUBEBUILDER_VERSION)-$(OS)-$(ARCH):
 	mkdir -p $@

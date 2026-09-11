@@ -2,10 +2,11 @@ version: 2
 
 before:
   hooks:
-    - sh -c 'sed -i "s/^version:.*/version: \"{{ .Version }}\"/" deploy/infomaniak-webhook/Chart.yaml'
-    - sh -c 'sed -i "s/^appVersion:.*/appVersion: \"{{ .Version }}\"/" deploy/infomaniak-webhook/Chart.yaml'
-    - sh -c 'mkdir -p dist && helm package deploy/infomaniak-webhook --destination dist'
-    - make rendered-manifest.yaml
+    - sh -c 'mkdir -p _out && rm -rf _out/chart && cp -r deploy/infomaniak-webhook _out/chart'
+    - 'sed -i "s/^version:.*/version: {{ .Version }}/" _out/chart/Chart.yaml'
+    - 'sed -i "s/^appVersion:.*/appVersion: {{ .Version }}/" _out/chart/Chart.yaml'
+    - sh -c 'helm package _out/chart --destination _out'
+    - make rendered-manifest.yaml CHART=_out/chart
 
 builds:
   - env:
@@ -30,12 +31,13 @@ signs:
     cmd: gpg
     args:
       - "--batch"
+      - "-u"
+      - "{{ .Env.GPG_FINGERPRINT }}"
       - "--output"
       - "${signature}"
       - "--detach-sign"
       - "${artifact}"
     signature: "${artifact}.sig"
-    fingerprint: "{{.Env.GPG_FINGERPRINT}}"
 
 dockers:
   - image_templates:
