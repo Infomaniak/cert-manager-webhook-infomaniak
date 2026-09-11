@@ -18,6 +18,13 @@ test: _test/kubebuilder-$(KUBEBUILDER_VERSION)-$(OS)-$(ARCH)/etcd _test/kubebuil
 	TEST_ASSET_KUBECTL=_test/kubebuilder-$(KUBEBUILDER_VERSION)-$(OS)-$(ARCH)/kubectl \
 	$(GO) test -v .
 
+.PHONY: unit-test
+unit-test:
+	TEST_ASSET_ETCD=/dev/null \
+	TEST_ASSET_KUBE_APISERVER=/dev/null \
+	TEST_ASSET_KUBECTL=/dev/null \
+	$(GO) test -v -run 'TestGetZoneByName|TestRequestErrorEnvelope|TestZoneExists|TestGetRecordID|TestEnsureDNSRecord|TestRemoveDNSRecord|TestUpdateDNSRecord' .
+
 _test/kubebuilder-$(KUBEBUILDER_VERSION)-$(OS)-$(ARCH).tar.gz: | _test
 	curl -fsSL https://github.com/kubernetes-sigs/kubebuilder/releases/download/v$(KUBEBUILDER_VERSION)/kubebuilder_$(KUBEBUILDER_VERSION)_$(OS)_$(ARCH).tar.gz -o $@
 

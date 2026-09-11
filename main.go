@@ -160,25 +160,21 @@ func (c *infomaniakDNSProviderSolver) do(ch *v1alpha1.ChallengeRequest, action a
 	}
 
 	ikAPI := NewInfomaniakAPI(apiToken)
-	domain, err := ikAPI.GetDomainByName(zone)
+	zone, err = ikAPI.GetZoneByName(zone)
 	if err != nil {
 		return err
 	}
 
-	domainASCII, err := domain.ASCIIName()
-	if err != nil {
-		return err
-	}
-	if strings.HasSuffix(source, domainASCII) {
-		source = strings.TrimSuffix(source, domainASCII)
+	if strings.HasSuffix(source, zone) {
+		source = strings.TrimSuffix(source, zone)
 		source = strings.TrimSuffix(source, ".")
 	}
 
 	switch action {
 	case actionPresent:
-		return ikAPI.EnsureDNSRecord(domain, source, target, "TXT", ttl)
+		return ikAPI.EnsureDNSRecord(zone, source, target, "TXT", ttl)
 	case actionCleanup:
-		return ikAPI.RemoveDNSRecord(domain, source, target, "TXT")
+		return ikAPI.RemoveDNSRecord(zone, source, target, "TXT")
 	}
 
 	return nil
