@@ -75,6 +75,8 @@ tolerations: []
 
 affinity: {}
 
+containerPort: 8443
+
 containerSecurityContext:
   runAsNonRoot: true
   readOnlyRootFilesystem: true

@@ -47,6 +47,7 @@ spec:
             - --v=2
             - --tls-cert-file=/tls/tls.crt
             - --tls-private-key-file=/tls/tls.key
+            - --secure-port={{ .Values.containerPort }}
           env:
             - name: GROUP_NAME
               value: {{ .Values.groupName | quote }}
@@ -64,7 +65,7 @@ spec:
             {{- end }}
           ports:
             - name: https
-              containerPort: 443
+              containerPort: {{ .Values.containerPort }}
               protocol: TCP
           {{- if not .Values.debug.enabled }}
           livenessProbe:
