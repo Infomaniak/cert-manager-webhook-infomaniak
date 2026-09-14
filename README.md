@@ -14,6 +14,11 @@ A cert-manager webhook which works with domains handled by [Infomaniak](https://
     $ kubectl apply -f https://github.com/infomaniak/cert-manager-webhook-infomaniak/releases/latest/download/rendered-manifest.yaml
     ```
 
+    Alternatively, with Helm from the OCI registry (installs the latest chart):
+    ```
+    $ helm install infomaniak-webhook oci://ghcr.io/infomaniak/cert-manager-webhook-infomaniak/infomaniak-webhook
+    ```
+
 1. Create a Secret with your Infomaniak API token. You can generate a new one by [clicking here](https://manager.infomaniak.com/v3/infomaniak-api). You need to have at least the `dns:read` and `dns:write` scopes.
     ```
     $ cat <<EOF | kubectl apply -f -
