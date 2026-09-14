@@ -52,6 +52,13 @@ jobs:
           # GitHub sets the GITHUB_TOKEN secret automatically.
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GPG_FINGERPRINT: ${{ steps.import_gpg.outputs.fingerprint }}
+      # The runner's preinstalled Helm regresses on OCI pushes to ghcr.io
+      # (helm/helm#31223): blobs upload, then the tag step 404s. Pin the
+      # last known-good version.
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.18.6
       - name: Push Helm chart to OCI registry
         env:
           HELM_REGISTRY: ghcr.io
