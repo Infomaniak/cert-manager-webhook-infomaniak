@@ -106,6 +106,23 @@ A cert-manager webhook which works with domains handled by [Infomaniak](https://
 
 1. Have fun 🎉 !
 
+## Troubleshooting
+
+### `all_scopes: This method require this specific scope: "dns:read"`
+
+If the webhook fails to present the challenge record with an error such as:
+
+```
+Error while presenting record `_acme-challenge.example.com.`: GET /2/zones/example.com/exists failed: all_scopes: This method require this specific scope: "dns:read" (context: map[scopes:[dns:read]])
+```
+
+your API token is missing the required scopes. Since v0.4.0, the webhook talks
+to the Infomaniak API v2 (zones and DNS records) instead of the legacy domain
+v1 API, so the token needs the `dns:read` and `dns:write` scopes rather than
+the legacy `domain` scope. Regenerate your API token with at least these two
+scopes ([API token manager](https://manager.infomaniak.com/v3/infomaniak-api))
+and update the `infomaniak-api-credentials` Secret with it.
+
 ## Building
 
 Run `make build`
