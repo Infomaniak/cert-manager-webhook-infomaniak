@@ -8,12 +8,22 @@ import (
 	"text/template"
 
 	acmetest "github.com/cert-manager/cert-manager/test/acme"
+	"k8s.io/klog/v2"
+	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 var (
 	testZoneName = os.Getenv("TEST_ZONE_NAME")
 	manifestPath = "testdata/infomaniak"
 )
+
+// TestMain routes controller-runtime logs (started by the cert-manager
+// envtest fixture) through klog; without a logger, controller-runtime
+// drops its logs and prints a warning after 30 seconds.
+func TestMain(m *testing.M) {
+	ctrllog.SetLogger(klog.NewKlogr())
+	os.Exit(m.Run())
+}
 
 func createSecretFile() error {
 	apiToken := os.Getenv("INFOMANIAK_TOKEN")
