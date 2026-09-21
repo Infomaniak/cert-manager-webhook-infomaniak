@@ -1,25 +1,24 @@
 # Infomaniak ACME Webhook - Helm Chart
 
-## Flux Helm Release
+## Flux `HelmRelease`
 
-If you are using Flux to manage your configuration, a `GitRepository` can be used as a source for the `HelmRelease`.
-This also allows for customization of the chart values.
+If you are using Flux to manage your configuration, an `OCIRepository` can be used as the source for the `HelmRelease`:
 
 ```yaml
 ---
 apiVersion: source.toolkit.fluxcd.io/v1
-kind: GitRepository
+kind: OCIRepository
 metadata:
   name: infomaniak-webhook
   namespace: cert-manager
 spec:
-  interval: 5m
-  url: https://github.com/Infomaniak/cert-manager-webhook-infomaniak
+  interval: 15m
+  layerSelector:
+    mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
+    operation: copy
   ref:
-    branch: master
-  ignore: |
-    /*
-    !/deploy/
+    tag: 0.5.0 # Update version to what you need
+  url: oci://ghcr.io/infomaniak/cert-manager-webhook-infomaniak/infomaniak-webhook
 ---
 apiVersion: helm.toolkit.fluxcd.io/v2beta2
 kind: HelmRelease
@@ -27,13 +26,10 @@ metadata:
   name: infomaniak-webhook
   namespace: cert-manager
 spec:
-  interval: 5m
-  chart:
-    spec:
-      chart: deploy/infomaniak-webhook
-      sourceRef:
-        kind: GitRepository
-        name: infomaniak-webhook
+  chartRef:
+    kind: OCIRepository
+    name: infomaniak-webhook
+  interval: 30m
   values:
     groupName: example.com
     secretsNames:
